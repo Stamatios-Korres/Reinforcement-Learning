@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-import gym
+
 
 #  self.number_of_actions = 2
 #         self.gamma = 0.99
@@ -45,6 +45,8 @@ import gym
 
 
 class ValueNetwork(nn.Module):
+    
+  
     def __init__(self,inputDims, layerDims, outputDims):
 
         super(ValueNetwork, self).__init__()
@@ -63,6 +65,10 @@ class ValueNetwork(nn.Module):
 
         self.LayerParams = nn.ParameterList(list_param)
 
+    def init_weights(self):
+            torch.nn.init.xavier_uniform_(self.LayerParams)
+            # m.bias.data.fill_(0.01)
+                    
     def forward(self, inputs):
 
         out = inputs

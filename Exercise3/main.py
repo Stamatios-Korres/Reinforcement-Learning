@@ -22,7 +22,7 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
-parser.add_argument('--num_processes', type=int, default=2, metavar='N',
+parser.add_argument('--num_processes', type=int, default=8, metavar='N',
                     help='how many training processes to use (default: 2)')
 parser.add_argument('--cuda', action='store_true', default=False,
                     help='enables CUDA training')
@@ -37,10 +37,9 @@ if __name__ == "__main__" :
 
 	# Example on how to initialize global locks for processes
 	# and counters.
-	numOpponents = 1
 
-	args = parser.parse_args()
-	
+	numOpponents = 1
+	args = parser.parse_args()	
 	counter = mp.Value('i', 0)
 	lock = mp.Lock()
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -54,21 +53,26 @@ if __name__ == "__main__" :
 	# copy_freq = 2000
 
 	# val_network = ValueNetwork(inputDims=15,layerDims=64,outputDims=4)
-	val_network = ValueNetwork(16,[16,16,4],4)
-	target_value_network = ValueNetwork(16,[16,16,4],4)
-	hard_copy(target_value_network, val_network)
-
-
-	# Share the gradients between the processes. Lazy allocation so gradients are not shared here
-	val_network.share_memory()
 	
-	# Shared optimizer -> If gradients are shared through the network, what does the shared optimizer does ? 
-	optimizer = SharedAdam(params=val_network.parameters())
 
+	# target_value_network.apply(target_value_network.init_weights)
+	val_network = ValueNetwork(15,[16,16,4],4)
+	val_network.share_memory()
+
+	target_value_network = ValueNetwork(15,[16,16,4],4)
+	target_value_network.share_memory()
+
+	hard_copy(val_network,target_value_network)
+
+
+	# Shared optimizer ->  Share the gradients between the processes. Lazy allocation so gradients are not shared here
+	optimizer = SharedAdam(params=val_network.parameters())
+	optimizer.share_memory()
+	timesteps_per_process = 2*(10**6) // args.num_processes
 
 	processes = []
 	for idx in range(0, args.num_processes):
-			trainingArgs = (idx, val_network, target_value_network, optimizer, lock, counter)
+			trainingArgs = (idx, val_network, target_value_network, optimizer, lock, counter,timesteps_per_process)
 			p = mp.Process(target=train, args=trainingArgs)
 			p.start()
 			processes.append(p)

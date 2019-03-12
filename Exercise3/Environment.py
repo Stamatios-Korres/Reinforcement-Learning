@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 #encoding utf-8
 import sys
-sys.path.insert(0,'/home/timos/HFO')
+sys.path.insert(0,'/afs/inf.ed.ac.uk/user/s18/s1877727/HFO/')
+
+# sys.path.insert(0,'/home/timos/HFO')
 
 from hfo import *
 from copy import copy, deepcopy
@@ -36,7 +38,7 @@ class HFOEnv(object):
 			os.system("./../../../bin/HFO --seed {} --defense-npcs=0 --defense-agents={} --offense-agents=1 --trials 8000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate &".format(str(self.seed),
 			str(self.numOpponents), str(self.port)))
 		else :
-			os.system("./../../../bin/HFO --seed {} --defense-agents={} --defense-npcs=0 --offense-npcs={} --offense-agents=1 --trials 8000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate &".format(
+			os.system("./../../../bin/HFO --seed {} --defense-agents={} --defense-npcs=0 --offense-npcs={} --headless --offense-agents=1 --trials 8000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate &".format(
 					str(self.seed), str(self.numOpponents), str(self.numTeammates), str(self.port)))
 		time.sleep(5)
 
@@ -85,7 +87,7 @@ class HFOEnv(object):
 		totalReward = 0
 		info = {}
 		if status == GOAL:
-				totalReward += 1
+				totalReward = 1
 
 		# if nextState != "GOAL" and nextState != "OUT_OF_BOUNDS":
 		#       for index in range(1, len(nextState)):
