@@ -62,7 +62,7 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,times
 			hard_copy(target_value_network, val_network)
 		if (counter.value % 10**6) == 0:
 			if idx == process_to_save_networks:
-				saveModelNetwork(target_value_network,'/afs/inf.ed.ac.uk/user/s18/s1877727/HFO/example/RL2019-BaseCodes/Exercise3'+str(total_timesteps / 10**6)+"_model")
+				saveModelNetwork(target_value_network,'/afs/inf.ed.ac.uk/user/s18/s1877727/HFO/example/RL2019-BaseCodes/Exercise3'+str(counter.value / 10**6)+"_model")
 			# print(" I have to update the target network")
 
 
@@ -92,7 +92,7 @@ def compute_val(valueNetwork, obs,idx,epsilon):
 	# epsilon = [0.5,0.1,0.2,0.05,0.001,1,1e-8,0.25]
 	output_qs = valueNetwork(obs)
 	
-	qvalue,act =torch.max(output_qs[0],0)
+	_,act =torch.max(output_qs[0],0)
 	act = act.item()
 	
 	if random.random() < e:

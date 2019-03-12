@@ -1,0 +1,11 @@
+# Offense: 1
+# Defense:  1
+# Description of Fields:
+# 1) Episode number
+# 2) Start time in simulator steps (100ms)
+# 3) End time in simulator steps (100ms)
+# 4) Duration in simulator steps (100ms)
+# 5) Episode result
+#
+1	0	501	501	OUT_OF_T2	432	502	1003	501	OUT3	843	8833	1004	1505	501	OU4	134	13854	1506	2007	501	OU5	185	5	1944	2445	501	OUT_OF6	236	6	2446	2872	426	CA7	267	2848	3349	501	7	2873	38	318	3350	3763	413	8	339	369	3764	4211	447	9	3710	4039	4540	501	OUT_OF_10	4211	4541	5042	501	OUT_OF_11	4744	5245	501	OUT_OF_TIME
+12	4983	5251	268	OUT_OF_BOUNDS

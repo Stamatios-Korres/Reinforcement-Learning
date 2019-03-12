@@ -14,7 +14,7 @@ class SharedAdam(optim.Adam):
 
 	def __init__(self,
 				 params,
-				 lr=1e-3,
+				 lr=1e-4,
 				 betas=(0.9, 0.999),
 				 eps=1e-8,
 				 weight_decay=0):
