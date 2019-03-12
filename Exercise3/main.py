@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # encoding utf-8
+
+
 from Environment import HFOEnv
 import torch
 import torch.multiprocessing as mp
 from Networks import ValueNetwork
-from Worker import train
+from Worker import train,hard_copy
 import argparse
 from SharedAdam import SharedAdam
 import copy
@@ -33,29 +35,43 @@ parser.add_argument('--cuda', action='store_true', default=False,
 
 if __name__ == "__main__" :
 
-        # Example on how to initialize global locks for processes
-        # and counters.
-        numOpponents = 1
+	# Example on how to initialize global locks for processes
+	# and counters.
+	numOpponents = 1
 
-        args = parser.parse_args()
-        counter = mp.Value('i', 0)
-        lock = mp.Lock()
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	args = parser.parse_args()
+	
+	counter = mp.Value('i', 0)
+	lock = mp.Lock()
+	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Initialize shared network
+	# Initialize shared network
 
-        val_network = ValueNetwork(state_size=15,action_size=4,hidden_dimension=64)
-        val_network.apply(val_network.init_weights)
-        optimizer = SharedAdam(params=val_network.parameters())
-        val_network.share_memory()
+    
+	# max_grads = 1.0
+	# batch_size = 128
+	# gamma = 0.999
+	# copy_freq = 2000
+
+	# val_network = ValueNetwork(inputDims=15,layerDims=64,outputDims=4)
+	val_network = ValueNetwork(16,[16,16,4],4)
+	target_value_network = ValueNetwork(16,[16,16,4],4)
+	hard_copy(target_value_network, val_network)
 
 
-        processes = []
-        for idx in range(0, args.num_processes):
-                trainingArgs = (idx, val_network, optimizer, lock, counter)
-                p = mp.Process(target=train, args=trainingArgs)
-                p.start()
-                processes.append(p)
-        for p in processes:
-                p.join()
+	# Share the gradients between the processes. Lazy allocation so gradients are not shared here
+	val_network.share_memory()
+	
+	# Shared optimizer -> If gradients are shared through the network, what does the shared optimizer does ? 
+	optimizer = SharedAdam(params=val_network.parameters())
+
+
+	processes = []
+	for idx in range(0, args.num_processes):
+			trainingArgs = (idx, val_network, target_value_network, optimizer, lock, counter)
+			p = mp.Process(target=train, args=trainingArgs)
+			p.start()
+			processes.append(p)
+	for p in processes:
+			p.join()
 
