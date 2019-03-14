@@ -9,7 +9,6 @@ from DiscreteMARLUtils.Agent import Agent
 from copy import deepcopy
 import numpy as np
 from operator import add,sub
-import numpy as np
 import copy
 from collections import defaultdict
 		
@@ -25,8 +24,8 @@ class WolfPHCAgent(Agent):
 		self.loseDelta = loseDelta
 		
 		# Initial empty lists 
-		self.averagePolicy = {}
-		self.averagePolicyCounts = {}
+		self.averagepolicy = {}
+		self.C = {}
 		self.policy = {}
 		self.Q = {}
 
@@ -38,33 +37,27 @@ class WolfPHCAgent(Agent):
 		
 		
 	def setExperience(self, state, action, reward, status, nextState):
-		if state != (-1,-1):
+		if nextState != (-1,-1):
+			if nextState not in self.C.keys():
+				self.C[nextState]=0.0
+				for Ai in self.actions:
+				    self.Q[(nextState,Ai)]=0.0
+				    self.policy[(nextState,Ai)]=1/len(self.actions) 
+				    self.averagepolicy[(nextState,Ai)]=0 
 
-			# Initialize the policy for every undiscovered state 
-			if nextState not in self.policy:
-				self.policy[nextState] = [1/self.numberOfActions]*self.numberOfActions
-				self.averagePolicy[nextState] = [0]*self.numberOfActions
-
-			# Initialize state-action function for every undiscovered state
-			for action in self.actions:
-				if (nextState,action) not in self.Q:
-					self.Q[(nextState,action)] = 0
-			
 		self.S_t_1 = state
 		self.a_t_1 = action
 		self.S_t = nextState
 		self.r_t = reward
 
-	def setState(self, state):
-		
+	def setState(self, state):	
 		# Initialize the policy and the average policy 
-		
-		if state not in self.policy.keys():
-				self.averagePolicy[state] =  [0]*self.numberOfActions
-				self.policy[state] =  [1/self.numberOfActions]*self.numberOfActions
-		for action in self.actions:
-			if (state,action) not in self.Q:
-				self.Q[(state,action)] = 0
+		if state not in self.C.keys():
+			self.C[state]=0.0
+			for Ai in self.actions:
+				self.Q[(state,Ai)]=0.0
+				self.policy[(state,Ai)]=1/len(self.actions) 
+				self.averagepolicy[(state,Ai)]=0 
 		self.S_t = state 
 	
 	def learn(self):
@@ -87,16 +80,11 @@ class WolfPHCAgent(Agent):
 		return self.Q[(self.S_t_1, self.a_t_1)] - prev_Q
 
 	def calculateAveragePolicyUpdate(self):	
-		if self.S_t_1 not in self.averagePolicyCounts:
-			self.averagePolicyCounts[self.S_t_1] = 1
-		else:
-			self.averagePolicyCounts[self.S_t_1] +=1	
+		self.C[self.S_t_1] +=1	
 		
-		count = self.averagePolicyCounts[self.S_t_1]
-		list_trial = []
-		for i,_ in enumerate(self.actions):
-			list_trial.append(self.averagePolicy[self.S_t_1][i] + (1/count)*(self.averagePolicy[self.S_t_1][i] -self.policy[self.S_t_1][i]))		
-		self.averagePolicy[self.S_t_1] =  list_trial 
+		count = self.C[self.S_t_1]
+		for i,act in enumerate(self.actions):
+			self.averagepolicy[(self.S_t_1,act)] += (1/count)*(-self.averagepolicy[(self.S_t_1,act)] +self.policy[(self.S_t_1,act)])		
 		# return self.averagePolicy[self.S_t_1] - hard_copy
 	
 	def reset(self):
@@ -121,11 +109,11 @@ class WolfPHCAgent(Agent):
 					suboptimal_sol[action] = 1
 					
 		# Decide used learning rate 
-		sum_policy = sum_avrg_policy = 0 
+		sum_policy , sum_avrg_policy = 0, 0 
 
 		for i,action in enumerate(self.actions):
-				sum_policy += self.policy[self.S_t_1][i]*self.Q[(self.S_t_1,action)]
-				sum_avrg_policy += self.averagePolicy[self.S_t_1][i]*self.Q[(self.S_t_1,action)]
+				sum_policy += self.policy[(self.S_t_1,action)]*self.Q[(self.S_t_1,action)]
+				sum_avrg_policy += self.averagepolicy[(self.S_t_1,action)]*self.Q[(self.S_t_1,action)]
 		if sum_policy>=sum_avrg_policy:
 			lr = self.winDelta
 		else:
@@ -135,20 +123,22 @@ class WolfPHCAgent(Agent):
 		p_moved = 0 
 		
 		for i,action in enumerate(self.actions):
-			if action in suboptimal_sol:
-				p_moved += min(lr/len(suboptimal_sol),self.policy[self.S_t_1][i])		
-				self.policy[self.S_t_1][i] -= min(lr/len(suboptimal_sol),self.policy[self.S_t_1][i])
+			if action in suboptimal_sol.keys():
+				p_moved += min(lr/len(suboptimal_sol),self.policy[(self.S_t_1,action)])		
+				self.policy[(self.S_t_1,action)] -= min(lr/len(suboptimal_sol),self.policy[(self.S_t_1,action)])
 				
 		
 		#Update probabilities of optimal actions
 		for i,action in enumerate(self.actions):
-			if action not in suboptimal_sol:
-				self.policy[self.S_t_1][i] += (p_moved)/(self.numberOfActions - len(suboptimal_sol))
-		return self.policy[self.S_t_1]
+			if action not in suboptimal_sol.keys():
+				self.policy[(self.S_t_1,action)] += (p_moved)/(self.numberOfActions - len(suboptimal_sol))
+		#return self.policy[self.S_t_1]
 		
 
 	def act(self):
-		state_value_probabilities = self.policy[self.S_t]
+		state_value_probabilities = []
+		for Ai in self.actions:
+		    state_value_probabilities.append(self.policy[(self.S_t,Ai)])
 		action = np.random.choice(self.actions, p=state_value_probabilities)
 		return action
 		
@@ -237,4 +227,5 @@ if __name__ == '__main__':
 			
 			
 			observation = nextObservation
+		print(episode)
 	print("Total goals:",goals)
