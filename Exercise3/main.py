@@ -40,34 +40,34 @@ if __name__ == "__main__" :
 
 	numOpponents = 1
 	args = parser.parse_args()	
+
+	# What is this instruction? Is it neccesary ? 
+	mp.set_start_method('spawn')
+
 	counter = mp.Value('i', 0)
 	lock = mp.Lock()
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	# Initialize shared network
+	# Hyperparameters - Features 
+	Features = 15
+	actions = 4
 
-    
-	# max_grads = 1.0
-	# batch_size = 128
-	# gamma = 0.999
-	# copy_freq = 2000
+	# Initialize the shared networks 
 
-	# val_network = ValueNetwork(inputDims=15,layerDims=64,outputDims=4)
-	
-
-	# target_value_network.apply(target_value_network.init_weights)
-	val_network = ValueNetwork(15,[16,16,4],4)
-	val_network.share_memory()
-
-	target_value_network = ValueNetwork(15,[16,16,4],4)
-	target_value_network.share_memory()
-
+	val_network = ValueNetwork(Features,[16,16,16],actions)
+	target_value_network = ValueNetwork(Features,[16,16,16],actions)
 	hard_copy(val_network,target_value_network)
+
+	val_network.share_memory()
+	target_value_network.share_memory()
+	val_network.train()
+	
 
 
 	# Shared optimizer ->  Share the gradients between the processes. Lazy allocation so gradients are not shared here
 	optimizer = SharedAdam(params=val_network.parameters())
 	optimizer.share_memory()
+	optimizer.zero_grad()
 	timesteps_per_process = 2*(10**6) // args.num_processes
 
 	processes = []
