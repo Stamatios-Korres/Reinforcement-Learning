@@ -40,7 +40,7 @@ class IndependentQLearningAgent(Agent):
 		self.rewardS_t = 0
 
 	def setExperience(self, state, action, reward, status, nextState):
-		if state != (-1,-1):
+		if nextState != (-1,-1):
 			if not nextState in self.behavior_policy:
 				self.behavior_policy[nextState] = [1/6,1/6,1/6,1/6,1/6,1/6]
 			for action in self.actions:
