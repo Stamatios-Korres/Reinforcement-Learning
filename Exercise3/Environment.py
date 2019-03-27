@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #encoding utf-8
 import sys
-# sys.path.insert(0,'/afs/inf.ed.ac.uk/user/s18/s1877727/HFO/')
+sys.path.insert(0,'/afs/inf.ed.ac.uk/user/s18/s1877727/HFO/')
 
 sys.path.insert(0,'/home/timos/HFO')
 
@@ -87,9 +87,15 @@ class HFOEnv(object):
 		totalReward = 0
 		info = {}
 		if status == GOAL:
-				totalReward = 1
-		
-	
+			totalReward = 1
+		elif status == OUT_OF_TIME:
+			totalReward =-6
+		elif status == OUT_OF_BOUNDS:
+			totalReward =- 0.1
+		else:
+			ballX=nextState[3]
+			ballY=nextState[4]
+			totalReward = - 0.02 * math.sqrt(math.pow(ballX-1,2) + math.pow(ballY,2))
 		return totalReward,info
 
 	# Method that serves as an interface between a script controlling the agent

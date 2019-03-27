@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
-
 from Networks import ValueNetwork
 from torch.autograd import Variable
 from Environment import HFOEnv
@@ -11,22 +10,21 @@ import random
 from goal import goal
 import copy
 import os
+import numpy as np 
 
 verbose=False
-# def ensure_shared_grads(model, shared_model, counter, idx):
-#     print(model)
-#     print(shared_model)
-#     for param, shared_param in zip(model.parameters(),
-#                                    shared_model.parameters()):
-#         print('\nParams ')
-#         print(param)
-#         print(shared_param)
-#         if shared_param.grad is not None:
-#             return False
-#         shared_param._grad = param.grad
-#     # if verbose:
 
-#     return True
+def change_lr(optimizer, counter):
+    if counter > 4e6:
+        lr = 1e-7
+    elif counter > 3e6:
+        lr = 1e-6
+    elif counter > 1.5e6:
+        lr = 5e-5
+    else:
+        lr = 1e-5
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 def hard_copy_a_to_b(valueNetwork, targetValueNetwork, counter, idx):
     # print('\n')
@@ -48,14 +46,19 @@ def computePrediction(state, action, value_network):
     actValue = output_qs[action]# change dim when batch
     return actValue
 
-def get_epsilon(episode):
-    epsilon = 1.0 - min(1, episode/8000.0)
+def get_epsilon(episode, idx, counter, eval_mode):
+    target_epsilon = np.arange(0.01,0.3,0.04)
+
+    if eval_mode:
+        epsilon = 0.0
+    else:
+        epsilon = 1.0 - ( (1 - target_epsilon[idx]) * min(counter/4000000, 1))
     return epsilon
 
-def get_action(state, value_network, episode):
+def get_action(state, value_network, episode, idx, counter, eval_mode=False):
     output_qs = value_network(state)
     maxAction = torch.max(output_qs, dim=0)[1].item()
-    if random.random() < get_epsilon(episode):      # e-greedy action
+    if random.random() < get_epsilon(episode, idx, counter, eval_mode):      # e-greedy action
         maxAction = random.randint(0,3)
     return maxAction
     
@@ -64,16 +67,16 @@ def saveModelNetwork(model, strDirectory):
     torch.save(model.state_dict(), strDirectory)
 
 
-def evaluate(value_network, hfoEnv, max_episode_length, counter, idx, results_dir):
+def evaluate(value_network, hfoEnv, optimizer, max_episode_length, counter, idx, results_dir):
     f = open(os.path.join(results_dir, 'evaluation.out'), 'a')
     total_goals = 0.0
     total_steps = 0.0
-    num_episodes=30
+    num_episodes= 100
     for episode in range(num_episodes):
         state = hfoEnv.reset()
         state_t = torch.Tensor(state)
         for step in range(max_episode_length):
-            action_number = get_action(state_t, value_network, 10000) # action from value networks
+            action_number = get_action(state_t, value_network, 0, 0, 0, eval_mode=True) # action from value networks
             action = hfoEnv.possibleActions[action_number]
 
             next_state, reward, done, status, info = hfoEnv.step(action, state)
@@ -88,7 +91,10 @@ def evaluate(value_network, hfoEnv, max_episode_length, counter, idx, results_di
             total_steps += max_episode_length
         state=next_state
     steps_per_goal = total_steps/num_episodes
-    f.write('Counter: %d\t Real goals: %d/%d\tSteps: %d\tSteps per episode: %.1f\n' %(counter, total_goals, num_episodes, total_steps, steps_per_goal))
+    for param_group in optimizer.param_groups:
+        lr = param_group['lr']
+    epsilon = get_epsilon(None, idx, counter, eval_mode=False)
+    f.write('Counter: %d\t Real goals: %d/%d\tSteps: %d\tSteps per episode: %.1f\tEpsilon: %.5f\tLR: %.2E\n' %(counter, total_goals, num_episodes, total_steps, steps_per_goal, epsilon, lr))
     f.flush()
     return steps_per_goal
 
@@ -112,8 +118,15 @@ def train(idx, args, value_network, target_value_network, optimizer, lock, count
     total_steps = 0
     local_step = 0
     for episode in range(args.num_episodes):
-        
+        # if verbose:
+        #     print('\n','*'*100)
+        #     print('*'*100)
+        #     print('*'*40, 'EPISODE ', episode, '*'*40)
+        #     print('*'*100)
+        #     print('*'*100)
+
         done = False
+
         state = hfoEnv.reset()
         state_t = torch.Tensor(state)
         for step in range(args.max_episode_length):
@@ -123,7 +136,10 @@ def train(idx, args, value_network, target_value_network, optimizer, lock, count
             lock.release()
             local_step+=1
 
-            action_number = get_action(state_t, value_network, episode) # action from value networks
+            # if verbose:
+                # print('\n','*'*40, 'STEP ', step, '*'*40)
+
+            action_number = get_action(state_t, value_network, episode, idx, counter.value, eval_mode=False) # action from value networks
             action = hfoEnv.possibleActions[action_number]
 
             next_state, reward, done, status, info = hfoEnv.step(action, state)
@@ -156,28 +172,30 @@ def train(idx, args, value_network, target_value_network, optimizer, lock, count
             # # thelei with lock?
             if (local_step % args.value_update_steps == 0) or done:
                 # print('Worker %d update grads at Step %d' % (idx, local_step))
-                optimizer.step()
-                # clip_grad_norm_(value_network.parameters(), 0.5)
-                optimizer.zero_grad()
+                with lock:
+                    clip_grad_norm_(value_network.parameters(), 0.5)
+                    optimizer.step()
+                    optimizer.zero_grad()
 
             grads_flag=False
             evaluate_flag=False
             if locked_counter % args.target_update_steps == 0:
                 f.write('Update target network at counter %d\n' % locked_counter)
                 hard_copy_a_to_b(value_network, target_value_network, locked_counter, idx)
-            if (locked_counter % args.evaluate_freq_steps == 0): # and locked_counter >= 1000000:
+            if (locked_counter % args.evaluate_freq_steps == 0):
                 f.write('Evaluates value network at counter %d\n' % locked_counter)
-                steps_per_goal = evaluate(copy.deepcopy(target_value_network), hfoEnv, args.max_episode_length, locked_counter, idx, results_dir)
+                steps_per_goal = evaluate(copy.deepcopy(target_value_network), hfoEnv, optimizer, args.max_episode_length, locked_counter, idx, results_dir)
                 if steps_per_goal <= best_steps_per_goal.value:
                     lock.acquire()
                     best_steps_per_goal.value = steps_per_goal
                     lock.release()
                     saveModelNetwork(value_network, os.path.join(results_dir, 'params_best'))
                     f2 = open(os.path.join(results_dir, 'evaluation.out'), 'a')
-                    f2.write('Writing best params to file')
+                    f2.write('Writing best params to file\n')
                     f2.close()
-                SAVE_EVERY=args.evaluate_freq_steps #
-                # SAVE_EVERY=1000000
+                # SAVE_EVERY=args.evaluate_freq_steps #
+                change_lr(optimizer, counter)
+                SAVE_EVERY=1000000
                 if (locked_counter % SAVE_EVERY == 0):
                     saveModelNetwork(value_network, os.path.join(results_dir, 'params_%d' % int(locked_counter/SAVE_EVERY)))
 

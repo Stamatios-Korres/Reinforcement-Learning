@@ -2,6 +2,7 @@
 # Try target network update steps 5000
 # Try clip_grad_norm_ https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/02-intermediate/language_model/main.py
 # Try changing learning rate in SharedAdam
+# Try other stuff in rewards
 
 #!/usr/bin/env python3
 # encoding utf-8
@@ -33,7 +34,7 @@ parser.add_argument('--num-processes', type=int, default=5, help='how many train
 
 parser.add_argument('--value-update-steps', type=int, default=8, help='number of forward steps in DQN before the value networks update (default: 5)') #8
 parser.add_argument('--target-update-steps', type=int, default=5000, help='number steps before the target network update (default: 20000)') # try 5000
-parser.add_argument('--evaluate-freq-steps', type=int, default=1000, help='number of steps for evaluation 100.000')
+parser.add_argument('--evaluate-freq-steps', type=int, default=200000, help='number of steps for evaluation 100.000')
 
 parser.add_argument('--max-episode-length', type=int, default=500, help='maximum length of an episode (default: 500)')
 parser.add_argument('--num-episodes', type=int, default=50000, help='number of episodes (default: 20000)')
@@ -65,6 +66,7 @@ if __name__ == "__main__" :
     #### HYPER PARAMETERS
     N_FEATURES= N_HIGH_LEVEL_FEATURES
 
+    # LAYERS = [90,90,90]
     value_network = ValueNetwork()
     target_value_network = ValueNetwork()
     hard_copy_a_to_b(value_network, target_value_network, -1, -1)
@@ -84,6 +86,5 @@ if __name__ == "__main__" :
         processes.append(p)
     for p in processes:
         p.join()
-
 
     print(counter.value)

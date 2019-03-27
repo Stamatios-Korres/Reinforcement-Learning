@@ -32,10 +32,10 @@ class HFOEnv(object):
 	# Method to initialize the server for HFO environment
 	def startEnv(self):
 		if self.numTeammates == 0:
-			os.system("./../../../bin/HFO --headless --seed {} --defense-npcs=0 --defense-agents={} --offense-agents=1 --trials 8000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate >/dev/null 2>&1  &".format(str(self.seed),
+			os.system("./../../../bin/HFO --headless --seed {} --defense-npcs=0 --defense-agents={} --offense-agents=1 --trials 50000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate >/dev/null 2>&1  &".format(str(self.seed),
 				str(self.numOpponents), str(self.port)))
 		else :
-			os.system("./../../../bin/HFO --headless --seed {} --defense-agents={} --defense-npcs=0 --offense-npcs={} --offense-agents=1 --trials 8000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate >/dev/null 2>&1  &".format(
+			os.system("./../../../bin/HFO --headless --seed {} --defense-agents={} --defense-npcs=0 --offense-npcs={} --offense-agents=1 --trials 50000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate >/dev/null 2>&1  &".format(
 				str(self.seed), str(self.numOpponents), str(self.numTeammates), str(self.port)))
 		time.sleep(5)
 
@@ -51,8 +51,8 @@ class HFOEnv(object):
 	# Connect the custom weaker goalkeeper to the server and 
 	# establish agent's connection with HFO server
 	def connectToServer(self):
-		os.system("./Goalkeeper.py --numEpisodes=8000 --port={} >/dev/null 2>&1  &".format(str(self.port)))
-		time.sleep(2)
+		os.system("./Goalkeeper.py --numEpisodes=50000 --port={} >/dev/null 2>&1  &".format(str(self.port)))
+		time.sleep(5)
 		self.hfo.connectToServer(HIGH_LEVEL_FEATURE_SET,self.config_dir,self.port,self.server_addr,self.team_name,self.play_goalie)
 
 	# This method computes the resulting status and states after an agent decides to take an action
@@ -82,39 +82,19 @@ class HFOEnv(object):
 	
 	import math
 	def get_reward(self, status, nextState, prevState):
-		# self.prevHasBall = nextState[5]
-		# if status==0:
-		# 	# reward = -0.2
-		# 	info = 'IN_GAME'
-		# 	# if nextState[5] == 1:
-		# 	# 	reward = -0.1
-
-		# 	ballX=nextState[3]
-		# 	ballY=nextState[4]
-		# 	dist = math.sqrt(math.pow(ballX-1,2) + math.pow(ballY,2))
-		# 	reward = - 0.2 * (dist)
-		# elif status==1:
-		# 	reward = 1
-		# 	info = 'GOAL'
-		# elif status==2:
-		# 	reward = -0.5
-		# 	info = 'CapturedByDefense'
-		# elif status==3:
-		# 	reward = -0.3
-		# 	info = 'OutOfBounds'
-		# else:
-		# 	reward = 0
-		# 	info = 'SOMETHING_ELSE_HAPPENED'
-		# 	print('SOMETHING_ELSE_HAPPENED, Status: ', status)
-		# if (nextState[5]) == 1 and (prevState[5]==0): # got the ball
-		# 	reward += 0.3
-		if status==1:
+		
+		NUM_GAME_STATUS_STATES = 6
+		IN_GAME, GOAL, CAPTURED_BY_DEFENSE, OUT_OF_BOUNDS, OUT_OF_TIME, SERVER_DOWN = list(range(NUM_GAME_STATUS_STATES))
+		if status==GOAL:
 			reward = 1
-			info = 'Goal'
+		elif status == OUT_OF_TIME:
+			reward = -5
 		else:
-			reward = 0
-			info = 'Not a goal'
-		return reward, info
+			ballX=nextState[3]
+			ballY=nextState[4]
+			reward = - 0.02 * math.sqrt(math.pow(ballX -1,2) + math.pow(ballY,2))
+			# reward = -0.02
+		return reward, None
 
 	# Method that serves as an interface between a script controlling the agent
 	# and the environment. Method returns the nextState, reward, flag indicating
@@ -134,12 +114,3 @@ class HFOEnv(object):
 	# Preprocess the state representation in this function
 	def preprocessState(self, state):
 		return state
-
-
-
-
-
-
-
-
-

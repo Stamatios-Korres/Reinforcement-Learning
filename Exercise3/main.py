@@ -22,7 +22,7 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
-parser.add_argument('--num_processes', type=int, default=8, metavar='N',
+parser.add_argument('--num_processes', type=int, default=4, metavar='N',
                     help='how many training processes to use (default: 2)')
 parser.add_argument('--cuda', action='store_true', default=False,
                     help='enables CUDA training')
@@ -48,26 +48,28 @@ if __name__ == "__main__" :
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	# Hyperparameters - Features 
-	Features = 15
+	features = 15
 	actions = 4
-
+	hidden_layers = [50,60,30]
 	# Initialize the shared networks 
-
-	val_network = ValueNetwork(Features,[16,16,16],actions)
-	target_value_network = ValueNetwork(Features,[16,16,16],actions)
-	hard_copy(val_network,target_value_network)
-
+	
+	val_network = ValueNetwork(features, hidden_layers, actions)
 	val_network.share_memory()
+
+	target_value_network = ValueNetwork(features, hidden_layers, actions)
 	target_value_network.share_memory()
+
+
+	hard_copy(val_network,target_value_network)
 	val_network.train()
 	
 
 
 	# Shared optimizer ->  Share the gradients between the processes. Lazy allocation so gradients are not shared here
-	optimizer = SharedAdam(params=val_network.parameters())
+	optimizer = SharedAdam(params=val_network.parameters(),lr=1e-5)
 	optimizer.share_memory()
 	optimizer.zero_grad()
-	timesteps_per_process = 2*(10**6) // args.num_processes
+	timesteps_per_process = 32*(10**6) // args.num_processes*500
 
 	processes = []
 	for idx in range(0, args.num_processes):
