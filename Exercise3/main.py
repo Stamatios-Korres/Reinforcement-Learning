@@ -27,7 +27,6 @@ parser.add_argument('--num_processes', type=int, default=8, metavar='N',
 parser.add_argument('--cuda', action='store_true', default=False,
                     help='enables CUDA training')
 
-
 # Use this script to handle arguments and 
 # initialize important components of your experiment.
 # These might include important parameters for your experiment,
@@ -42,7 +41,7 @@ if __name__ == "__main__" :
 	args = parser.parse_args()	
 
 	# What is this instruction? Is it neccesary ? 
-	mp.set_start_method('spawn')
+	mp.set_start_method('fork')
 
 	counter = mp.Value('i', 0)
 	lock = mp.Lock()

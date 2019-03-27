@@ -35,7 +35,7 @@ class HFOEnv(object):
 	# Method to initialize the server for HFO environment
 	def startEnv(self):
 		if self.numTeammates == 0:
-			os.system("./../../../bin/HFO --seed {} --defense-npcs=0 --defense-agents={} --offense-agents=1 --trials 8000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate &".format(str(self.seed),
+			os.system("./../../../bin/HFO --seed {} --defense-npcs=0 --defense-agents={}  --headless --offense-agents=1 --trials 8000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate &".format(str(self.seed),
 			str(self.numOpponents), str(self.port)))
 		else :
 			os.system("./../../../bin/HFO --seed {} --defense-agents={} --defense-npcs=0 --offense-npcs={} --headless --offense-agents=1 --trials 8000 --untouched-time 500 --frames-per-trial 500 --port {} --fullstate &".format(
@@ -62,15 +62,15 @@ class HFOEnv(object):
 	def act(self, actionString):
 
 		if actionString =='MOVE':
-				self.hfo.act(MOVE)
+			self.hfo.act(MOVE)
 		elif actionString =='SHOOT':
-				self.hfo.act(SHOOT)
+			self.hfo.act(SHOOT)
 		elif actionString =='DRIBBLE':
-				self.hfo.act(DRIBBLE)
+			self.hfo.act(DRIBBLE)
 		elif actionString =='GO_TO_BALL':
-				self.hfo.act(GO_TO_BALL)
+			self.hfo.act(GO_TO_BALL)
 		else:
-				raise Exception('INVALID ACTION!')
+			raise Exception('INVALID ACTION!')
 
 		status = self.hfo.step()
 		currentState = self.hfo.getState()
@@ -88,13 +88,8 @@ class HFOEnv(object):
 		info = {}
 		if status == GOAL:
 				totalReward = 1
-
-		# if nextState != "GOAL" and nextState != "OUT_OF_BOUNDS":
-		#       for index in range(1, len(nextState)):
-		#               if nextState[0] == nextState[index]:
-		#                       totalReward -= self.collisionPenalty
-		#                       break
-
+		
+	
 		return totalReward,info
 
 	# Method that serves as an interface between a script controlling the agent
