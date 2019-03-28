@@ -7,7 +7,7 @@ from DiscreteHFO.HFOAttackingPlayer import HFOAttackingPlayer
 from DiscreteHFO.Agent import Agent
 import argparse
 from sys import maxsize
-
+import random 
 class MonteCarloAgent(Agent):
 	
 	def __init__(self, discountFactor, epsilon, initVals=0.0):
@@ -25,101 +25,73 @@ class MonteCarloAgent(Agent):
 		# Bad initialization policy
 		self.stateValue = {((x, y), z): 0 for ((x, y), z) in self.stateAction}
 		self.visited = {}
-		self.visited_on_this_episode = {}
+		self.list_visited_on_this_episode = []
+		self.timefound = {}
+
 		
 		# TODO: Not a soft-policy, make it stochastic
-		
-		self.policy = {(x, y): [0.2, 0.2, 0.2, 0.2, 0.2] for (x, y) in self.states}
+	
 		self.reward = {}
-		self.visited_at = {}
 		self.counter = 0
 	
 	def toStateRepresentation(self, state):
-		return state[0]
-	
-	def setState(self, state):
+		if type(state) == str:
+			return -1, -1
+		else:
+			return state[0]
 		
+	
+	def setState(self, state):		
 		self.currentState = state
-	
-	def print_Results(self):
-		print(self.policy)
-		print(self.stateValue)
-	
-		
-	def learn(self):
-		
-		# TODO: Is it efficiently computed ? Can I compute the G_t more efficiently for all states ?
-		
-		# Q(s,a) evaluation, MC - control
-		# print(self.reward)
-		# for stateValue, timestep in self.visited_on_this_episode.items():
-			# print(stateValue)
-			# Compute expected return
-			# G_t = 0
-		
-			# for i in range(timestep,self.counter-1):
-			# 	gamma = self.discountFactor ** (i-timestep)
-			# 	G_t += (gamma)*self.reward[i+1]
-			#
-			# self.stateValue[stateValue] += (1 / self.visited[stateValue])*(G_t - self.stateValue[stateValue])
-		
-		G_t = 0
-		for i in reversed(range(self.counter-2)):
-			G_t = self.reward[i] + G_t*self.discountFactor
-			self.stateValue[self.visited_at[i]] += (1 / self.visited[self.visited_at[i]]) * (G_t - self.stateValue[self.visited_at[i]])
 			
-		
-		# e-greedy policy π
-		for (state, _), _ in self.visited_on_this_episode.items():
-			best_reward = (-maxsize)
-			total_best_actions = 0
-			for action in self.actions:
-				temp = self.stateValue[(state, action)]
-				if temp > best_reward:
-					best_reward = temp
-					total_best_actions = 1
-				elif temp == best_reward:
-					total_best_actions += 1
-			policy = []
-			for action in self.actions:
-				if self.stateValue[(state, action)] == best_reward:
-					policy.append((1 - self.epsilon)/total_best_actions + self.epsilon / self.numberOfActions)
-				else:
-					policy.append(self.epsilon/self.numberOfActions)
-			self.policy[state] = policy
+	def learn(self):
+		return_list = [] 		
+		for (state,action) in self.list_visited_on_this_episode:
+			G_t = 0 
+			start = self.timefound[(state,action)]
+			for i in range(start,self.counter-1):
+				gamma = self.discountFactor ** (i-start)
+				G_t += (gamma)*self.reward[i+1]
+			self.stateValue[(state,action)] += (1 / self.visited[(state,action)])*(G_t - self.stateValue[(state,action)])
+			return_list.append(self.stateValue[(state,action)])
+		return 'ggg',return_list
 	
 	
-	def setExperience(self, state, action, reward, status, nextState):
-		if not (state, action) in self.visited_on_this_episode:
-			# self.visited_at[self.counter] = (state, action)
-			self.visited_on_this_episode[(state, action)] = 1
+	def setExperience(self, state, action, rew, status, nextState):
+		if (state, action) not in self.list_visited_on_this_episode:
+			self.list_visited_on_this_episode.append((state, action))
+			self.timefound[(state, action)]= self.counter
 			if (state, action) in self.visited:
 				self.visited[(state, action)] += 1
 			else:
 				self.visited[(state, action)] = 1
-		self.reward[self.counter] = reward
-		self.visited_at[self.counter] = (state, action)
 		self.counter += 1
-	
+		self.reward[self.counter] = rew
 	
 	def reset(self):
 		self.reward = {}
-		self.visited_at = {}
+		self.timefound = {}
 		self.counter = 0
-		self.visited_on_this_episode = {}
+		self.list_visited_on_this_episode =  []
 	
 	def act(self):
-		probability_scores = self.policy[self.currentState]
-		return np.random.choice(self.actions, p=probability_scores)
+		action_distribution={}
+		for action in self.actions:
+			action_distribution[action] = self.stateValue[(self.currentState,action)]
+		maxValue = max(action_distribution.values())
+		action_to_take = np.random.choice([k for k,v in action_distribution.items() if v == maxValue])
+
+		if random.random() < self.epsilon:     
+			action_to_take = self.possibleActions[random.randint(0,len(self.possibleActions)-1)]
+		return action_to_take
+		# probability_scores = self.policy[self.currentState]
+		# return np.random.choice(self.actions, p=probability_scores)
 		
 	def setEpsilon(self, epsilon):
 		self.epsilon = epsilon
 	
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		
-		epsilon = self.epsilon * 0.99
-		if episodeNumber == 1500:
-			epsilon = self.epsilon /1000
+		epsilon =1 -episodeNumber/5000
 		return  epsilon
 		
 

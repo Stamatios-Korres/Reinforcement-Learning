@@ -4,7 +4,8 @@
 import os, sys
 
 from os.path import dirname, join, abspath
-# sys.path.insert(0, abspath(join(dirname(__file__), '../../../')))
+sys.path.insert(0,'/afs/inf.ed.ac.uk/user/s18/s1877727/HFO/')
+sys.path.insert(0,'/home/timos/HFO')
 
 sys.path.insert(0, '/home/timos/HFO')
 from hfo import *

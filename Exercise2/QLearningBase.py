@@ -6,6 +6,7 @@ from DiscreteHFO.Agent import Agent
 import argparse
 import itertools
 import numpy as np
+import random
 from sys import maxsize
 
 
@@ -27,8 +28,9 @@ class QLearningAgent(Agent):
 		# --------------------- behavior, target policy and stateValue Q(s,a)  --------------------------- #
 		
 		self.behavior_policy = {(x, y): [0.2, 0.2, 0.2, 0.2, 0.2] for (x, y) in self.states}  # greedy policy
-		
-		self.stateValue = {((x, y), z): 0 for ((x, y), z) in self.stateAction}
+		# self.policy = {}
+		self.stateValue = {}
+		#  {((x, y), z): 0 for ((x, y), z) in self.stateAction}
 		
 		# --------------------- Resettable Variables  --------------------------- #
 		
@@ -36,25 +38,28 @@ class QLearningAgent(Agent):
 		self.actionS_t_1 = None
 		self.rewardS_t = 0
 		
-	def setExperience(self, state, action, reward, status, nextState):
+	def setExperience(self, state, act, reward, status, nextState):
+		if nextState != (-1,-1):
+			for action in self.actions:
+				if not (nextState,action) in self.stateValue:
+					self.stateValue[(nextState,action)] = 0
+				if not (state,action) in self.stateValue:
+					self.stateValue[(state,action)] = 0
 		self.stateS_t_1 = state
-		self.actionS_t_1 = action
+		self.actionS_t_1 = act
 		self.stateS_t = nextState
 		self.rewardS_t = reward
 		
 	def learn(self):
 		
 		# Update Q(s,a)
+		prior = self.stateValue[(self.stateS_t_1, self.actionS_t_1)]
 		max_value = (- maxsize)
-		total_best_actions = 0
 		if self.stateS_t != (-1, -1):
 			for action in self.actions:
 				temp = self.stateValue[(self.stateS_t, action)]
 				if temp > max_value:
 					max_value = temp
-					total_best_actions=1
-				elif temp == max_value:
-					total_best_actions += 1
 			self.stateValue[(self.stateS_t_1, self.actionS_t_1)] += self.learningRate * (
 					self.rewardS_t + self.discountFactor * max_value
 					- self.stateValue[(self.stateS_t_1, self.actionS_t_1)]
@@ -65,14 +70,14 @@ class QLearningAgent(Agent):
 			)
 			
 		# Update behavior policy e-greedy μ
-		policy = []
-		for action in self.actions:
-			if self.stateValue[(self.stateS_t_1, action)] == max_value:
-				policy.append((1 - self.epsilon) / total_best_actions + self.epsilon / self.numberOfActions)
-			else:
-				policy.append(self.epsilon / self.numberOfActions)
+		# policy = []
+		# for action in self.actions:
+		# 	if self.stateValue[(self.stateS_t_1, action)] == max_value:
+		# 		policy.append((1 - self.epsilon) / total_best_actions + self.epsilon / self.numberOfActions)
+		# 	else:
+		# 		policy.append(self.epsilon / self.numberOfActions)
 	
-		return self.stateValue[(self.stateS_t_1, self.curr_action)]
+		return self.stateValue[(self.stateS_t_1, self.actionS_t_1)] - prior
 	
 	
 	
@@ -87,8 +92,18 @@ class QLearningAgent(Agent):
 		self.stateS_t = state
 	
 	def act(self):
-		state_value_probabilities = self.behavior_policy[self.stateS_t]
-		return np.random.choice(self.actions, p=state_value_probabilities)
+		action_distribution = dict()
+		for action in self.actions:
+			action_distribution[action] =  self.stateValue[(self.stateS_t,action)]
+		maxValue = max(action_distribution.values())
+		action_to_take = np.random.choice([k for k,v in action_distribution.items() if v == maxValue])
+
+		if random.random() < self.epsilon:      # e-greedy action
+			action_to_take = self.actions[random.randint(0,len(self.actions)-1)]
+		return action_to_take
+
+		# state_value_probabilities = self.behavior_policy[self.stateS_t]
+		# return np.random.choice(self.actions, p=state_value_probabilities)
 		
 	
 	def setLearningRate(self, learningRate):

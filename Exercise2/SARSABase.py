@@ -7,6 +7,7 @@ import argparse
 import itertools
 import numpy as np
 from sys import maxsize
+import random
 
 
 class SARSAAgent(Agent):
@@ -24,7 +25,7 @@ class SARSAAgent(Agent):
 		self.stateAction = list(itertools.product(self.states, self.actions))
 		
 		# Bad initialization policy
-		self.policy = {(x, y): [0.2, 0.2, 0.2, 0.2, 0.2] for (x, y) in self.states}
+		self.policy = {} 	   #{(x, y): [0.2, 0.2, 0.2, 0.2, 0.2] for (x, y) in self.states}
 		self.stateValue = {((x, y), z): 0 for ((x, y), z) in self.stateAction}
 		
 		self.stateS_t_2 = self.stateS_t_1 = self.stateS_t = None
@@ -42,22 +43,22 @@ class SARSAAgent(Agent):
 			stateS_t_2 = (self.stateS_t_2, self.actionS_t_2)
 			self.stateValue[stateS_t_2] += self.learningRate * (self.rewardS_t_1 - self.stateValue[stateS_t_2])
 		
-		# Update Policy
-		best_reward = (-maxsize)
-		total_best_actions = 0
-		for action in self.actions:
-			temp = self.stateValue[(self.stateS_t_2, action)]
-			if temp > best_reward:
-				best_reward = temp
-				total_best_actions=1
-			elif temp == best_reward:
-				total_best_actions+=1
-		policy = []
-		for action in self.actions:
-			if self.stateValue[(self.stateS_t_2, action)] == best_reward:
-				policy.append((1 - self.epsilon)/total_best_actions + self.epsilon / self.numberOfActions)
-			else:
-				policy.append(self.epsilon/self.numberOfActions)
+		# # Update Policy
+		# best_reward = (-maxsize)
+		# total_best_actions = 0
+		# for action in self.actions:
+		# 	temp = self.stateValue[(self.stateS_t_2, action)]
+		# 	if temp > best_reward:
+		# 		best_reward = temp
+		# 		total_best_actions = 1
+		# 	elif temp == best_reward:
+		# 		total_best_actions += 1
+		# policy = []
+		# # for action in self.actions:
+		# # 	if self.stateValue[(self.stateS_t_2, action)] == best_reward:
+		# # 		policy.append((1 - self.epsilon)/total_best_actions + self.epsilon / self.numberOfActions)
+		# # 	else:
+		# # 		policy.append(self.epsilon/self.numberOfActions)
 				
 				
 		return self.stateValue[stateS_t_2]
@@ -67,7 +68,7 @@ class SARSAAgent(Agent):
 			self.stateS_t_2 = self.stateS_t_1
 			self.stateS_t_1 = state
 			self.stateS_t = nextState
-			
+
 			self.rewardS_t_1 = self.rewardS_t
 			self.rewardS_t = reward
 			
@@ -78,19 +79,26 @@ class SARSAAgent(Agent):
 		self.stateS_t = state
 
 	def act(self):
-		state_value_probabilities = self.policy[self.stateS_t]
-		action = np.random.choice(self.actions, p=state_value_probabilities)
+		action_distribution={}
+		for action in self.actions:
+			action_distribution[action] = self.stateValue[(self.stateS_t,action)]
+		maxValue = max(action_distribution.values())
+		action_to_take = np.random.choice([k for k,v in action_distribution.items() if v == maxValue])
+
+		if random.random() < self.epsilon:     
+			action_to_take = self.possibleActions[random.randint(0,len(self.possibleActions)-1)]
+		return action_to_take
+
+		# state_value_probabilities = self.policy[self.stateS_t]
+		# action = np.random.choice(self.actions, p=state_value_probabilities)
 		
-		return action
+		# return action
 	
 	
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		# TODO: Compute Learning a and exploration factor e
-		if episodeNumber % 50 == 0  and episodeNumber >0 :
-			epsilon, learning_rate = self.epsilon / episodeNumber, self.learningRate
-		else:
-			epsilon, learning_rate  = self.epsilon, self.learningRate
-		return epsilon,learning_rate
+		self.epsilon = 1 - episodeNumber/5000
+		self.learningRate = 1 - episodeNumber/5000 
+		return self.epsilon,self.learningRate
 	
 	def toStateRepresentation(self, state):
 		if type(state) == str:

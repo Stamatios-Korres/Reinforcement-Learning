@@ -6,7 +6,9 @@
 SleepTime=3
 epochs=500
 
-./../../../bin/HFO --defense-agents=2 --offense-agents=1 --offense-on-ball 11 --trials $epochs  --headless --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000 &
+./../../../bin/HFO --defense-agents=2 --offense-agents=1 --offense-on-ball 11 --trials 500 --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000  &
+
+# ./../../../bin/HFO --defense-agents=2 --offense-agents=1 --offense-on-ball 11 --trials $epochs  - --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000 &
 sleep $SleepTime
 ./DiscreteHFO/Initiator.py --numTrials=$epochs --numPlayingDefenseNPCs=1 --numAgents=1 &
 echo "Environment Initialized"

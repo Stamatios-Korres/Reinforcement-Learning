@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # encoding utf-8
-import sys
 
-sys.path.insert(0, '/home/timos/HFO')
+import sys
+sys.path.insert(0,'/afs/inf.ed.ac.uk/user/s18/s1877727/HFO/')
+sys.path.insert(0,'/home/timos/HFO')
+
+
+# sys.path.insert(0, '/home/timos/HFO')
 
 from hfo import *
 import random
