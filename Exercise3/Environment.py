@@ -88,15 +88,18 @@ class HFOEnv(object):
 		info = {}
 		if status == GOAL:
 			totalReward = 1
+		elif status == CAPTURED_BY_DEFENSE:
+			totalReward=-0.2
 		elif status == OUT_OF_TIME:
 			totalReward =-6
 		elif status == OUT_OF_BOUNDS:
-			totalReward =- 0.1
+			totalReward =- 0.5
 		else:
 			ballX=nextState[3]
 			ballY=nextState[4]
 			totalReward = - 0.02 * math.sqrt(math.pow(ballX-1,2) + math.pow(ballY,2))
 		return totalReward,info
+
 
 	# Method that serves as an interface between a script controlling the agent
 	# and the environment. Method returns the nextState, reward, flag indicating

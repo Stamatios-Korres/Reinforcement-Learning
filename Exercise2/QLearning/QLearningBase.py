@@ -6,6 +6,7 @@ from DiscreteHFO.Agent import Agent
 import argparse
 import itertools
 import numpy as np
+import random
 from sys import maxsize
 
 
@@ -21,80 +22,96 @@ class QLearningAgent(Agent):
 		
 		# --------------------- possible state-action --------------------------- #
 		
-		self.states = list(itertools.product(list(range(6)), list(range(5))))
+		self.states = list(itertools.product(list(range(5)), list(range(6))))
 		self.stateAction = list(itertools.product(self.states, self.actions))
 		
 		# --------------------- behavior, target policy and stateValue Q(s,a)  --------------------------- #
 		
-		self.target_policy = {(x, y): [0.2, 0.2, 0.2, 0.2, 0.2] for (x, y) in self.states}  # greedy policy
-		self.behavior_policy = {(x, y): np.random.choice(self.actions) for (x, y) in self.states}  # e-greedy policy
-		self.stateValue = {((x, y), z): 0 for ((x, y), z) in self.stateAction}
+		self.stateValue = {}
 		
-		# --------------------- Resetable Variables  --------------------------- #
-		self.next_state = self.curr_state = None
-		self.curr_action = None
-		self.curr_reward = 0
+		# --------------------- Resettable Variables  --------------------------- #
 		
+		self.stateS_t_1 = self.stateS_t =None
+		self.actionS_t_1 = None
+		self.rewardS_t = 0
+		
+	def setExperience(self, state, act, reward, status, nextState):
+		if nextState != (-1,-1):
+			for action in self.actions:
+				if  (nextState,action) not in self.stateValue.keys():
+					self.stateValue[(nextState,action)] = 0
+		self.stateS_t_1 = state
+		self.actionS_t_1 = act
+		self.stateS_t = nextState
+		self.rewardS_t = reward
+
 	def learn(self):
 		
 		# Update Q(s,a)
+		prior = self.stateValue[(self.stateS_t_1, self.actionS_t_1)]
 		max_value = (- maxsize)
-		for action in self.actions:
-			temp = self.stateValue[(self.next_state, action)]
-			if temp > max_value:
-				max_value = temp
-		self.stateValue[(self.curr_state, self.curr_action)] += self.learningRate * (
-				self.curr_reward + self.discountFactor * max_value
-				- self.stateValue[(self.curr_state, self.curr_action)]
-		)
-		# Update behavior policy
-		for action in self.actions:
-			temp = self.stateValue[(self.stateS_t_2, action)]
-			if temp > best_reward:
-				best_reward = temp
-				total_best_actions = 1
-			elif temp == best_reward:
-				total_best_actions += 1
-		policy = []
-		for action in self.actions:
-			if self.stateValue[(self.curr_state, action)] == best_reward:
-				policy.append((1 - self.epsilon) / total_best_actions + self.epsilon / self.numberOfActions)
-			else:
-				policy.append(self.epsilon / self.numberOfActions)
-		
-		return self.stateValue[(self.curr_state, self.curr_action)]
+		if self.stateS_t != (-1, -1):
+			for action in self.actions:
+				temp = self.stateValue[(self.stateS_t, action)]
+				if temp > max_value:
+					max_value = temp
+			self.stateValue[(self.stateS_t_1, self.actionS_t_1)] += self.learningRate * (
+					self.rewardS_t + self.discountFactor * max_value
+					- self.stateValue[(self.stateS_t_1, self.actionS_t_1)]
+			)
+		else:
+			self.stateValue[(self.stateS_t_1, self.actionS_t_1)] += self.learningRate * (
+				self.rewardS_t - self.stateValue[(self.stateS_t_1, self.actionS_t_1)]
+			)
 	
-	def setExperience(self, state, action, reward, status, nextState):
-		
-		self.curr_state = state
-		self.next_state = nextState
-		self.curr_action = action
-		self.curr_reward = reward
+		return self.stateValue[(self.stateS_t_1, self.actionS_t_1)] - prior
+	
+	
 	
 	def toStateRepresentation(self, state):
-		return state[0]
+		if type(state) == str:
+			return -1, -1
+		else:
+			return state[0]
 	
 	def setState(self, state):
+		for action in self.actions:
+			if (state,action) not in self.stateValue.keys():
+				self.stateValue[(state,action)] = 0
 		self.stateS_t = state
 	
 	def act(self):
-		state_value_probabilities = self.policy[self.stateS_t]
-		action = np.random.choice(self.actions, p=state_value_probabilities)
-		return action
+		action_distribution = dict()
+		for action in self.actions:
+			action_distribution[action] =  self.stateValue[(self.stateS_t,action)]
+		maxValue = max(action_distribution.values())
+		action_to_take = np.random.choice([k for k,v in action_distribution.items() if v == maxValue])
+
+		if random.random() < self.epsilon:      # e-greedy action
+			action_to_take = self.actions[random.randint(0,len(self.actions)-1)]
+		return action_to_take
+
+		# state_value_probabilities = self.behavior_policy[self.stateS_t]
+		# return np.random.choice(self.actions, p=state_value_probabilities)
+		
 	
 	def setLearningRate(self, learningRate):
 		self.learningRate = learningRate
 	
 	def setEpsilon(self, epsilon):
 		self.epsilon = epsilon
-		self.next_state = self.curr_state = None
-		self.curr_action = None
 	
 	def reset(self):
-		self.curr_reward = 0
+		self.stateS_t_1 = self.stateS_t =None
+		self.actionS_t_1 = None
+		self.rewardS_t = 0
+		pass
 	
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		return self.learningRate, self.epsilon
+		if episodeNumber > 4499:
+			self.learningRate = 0.01
+		return self.learningRate, max(1 -episodeNumber/4500,1e-6) #325/500
+		# return max(1 -episodeNumber/4501,1e-6), max(1 -episodeNumber/4500,1e-6)
 
 
 if __name__ == '__main__':
@@ -103,7 +120,7 @@ if __name__ == '__main__':
 	parser.add_argument('--id', type=int, default=0)
 	parser.add_argument('--numOpponents', type=int, default=0)
 	parser.add_argument('--numTeammates', type=int, default=0)
-	parser.add_argument('--numEpisodes', type=int, default=500)
+	parser.add_argument('--numEpisodes', type=int, default=5000)
 	
 	args = parser.parse_args()
 	
@@ -112,9 +129,10 @@ if __name__ == '__main__':
 	hfoEnv.connectToServer()
 	
 	# Initialize a Q-Learning Agent
-	agent = QLearningAgent(learningRate=0.1, discountFactor=0.99, epsilon=1.0)
+	agent = QLearningAgent(learningRate=0.1, discountFactor=0.99, epsilon=1)
 	numEpisodes = args.numEpisodes
-	
+	total_goals = 0 
+	final_goals = 0 
 	# Run training using Q-Learning
 	numTakenActions = 0
 	for episode in range(numEpisodes):
@@ -137,3 +155,11 @@ if __name__ == '__main__':
 			update = agent.learn()
 			
 			observation = nextObservation
+			
+		if reward ==1:
+			total_goals +=1
+		print(episode,total_goals)
+		if episode > 4499:
+			if reward == 1:
+				final_goals +=1
+	print(episode,final_goals)

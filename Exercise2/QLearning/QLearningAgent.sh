@@ -4,25 +4,29 @@
 # Cannot run an environment where defending agents exist but none are playing
 # goalkeeper
 
-./../../../../bin/HFO --defense-agents=2 --offense-agents=1 --offense-on-ball 11 --trials 500 --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000 &
-sleep 2
-./../DiscreteHFO/Initiator.py --numTrials=500 --numPlayingDefenseNPCs=1 --numAgents=1 &
+epochs=5000
+time_sleep=3
+
+./../../../bin/HFO --defense-agents=2 --headless  --offense-agents=1 --offense-on-ball 11 --trials $epochs --no-logging --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000  >/dev/null 2>&1&
+sleep $time_sleep
+
+./DiscreteHFO/Initiator.py --numTrials=$epochs --numPlayingDefenseNPCs=1 --numAgents=1 >/dev/null 2>&1  &
 echo "Environment Initialized"
 # Sleep is needed to make sure doesn't get connected too soon, as unum 1 (goalie)
 
-sleep 2
-./QLearningBase.py --numOpponents=1 &
+sleep $time_sleep
+./QLearningBase.py --numOpponents=1  --numEpisodes=$epochs&
 echo "Attacker Controller Initialized"
 
-sleep 2
-./../DiscreteHFO/Goalkeeper.py &
+sleep $time_sleep
+./DiscreteHFO/Goalkeeper.py --numEpisodes=$epochs >/dev/null 2>&1 &
 echo "Goalkeeper Initialized"
 
-sleep 2
-./../DiscreteHFO/DiscretizedDefendingPlayer.py --id=1 &
+sleep $time_sleep
+./DiscreteHFO/DiscretizedDefendingPlayer.py --numEpisodes=$epochs --id=1 >/dev/null 2>&1  &
 echo "Defending Player Initialized"
 
-sleep 2
+sleep $time_sleep
 # The magic line
 #   $$ holds the PID for this script
 #   Negation means kill by process group id instead of PID

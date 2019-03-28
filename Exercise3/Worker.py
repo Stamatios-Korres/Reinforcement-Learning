@@ -12,6 +12,14 @@ import numpy as np
 
 columns = '{0:<10} {1:<8} {2:<20} {3:<15} {4:<15}\n'
 
+def update_learning_rate(optimizer, value):
+	if value > 4e6:
+		lr = 1e-7
+	elif value > 3e6:
+		lr = 1e-6
+	for param_group in optimizer.param_groups:
+		param_group['lr'] = lr
+
 def init_environment(idx):
         hfoEnv = HFOEnv(numTeammates=0, numOpponents=1, port=6000+idx*10, seed=idx)
         hfoEnv.connectToServer()
@@ -23,7 +31,7 @@ def set_epsilon(num_episode,idx,episode_per_process):
 	epsilon = init_epsilon - idx*(1/rate_of_decay)
 
 	epsilon = epsilon - (epsilon)*num_episode/episode_per_process 
-	if epsilon <0:
+	if epsilon < 0:
 		epsilon = 0 
 	return epsilon
 
@@ -48,7 +56,6 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 	
 	
 	f.write(columns.format('Episode','Status','Avg steps to goal','Total Goals','Counter'))
-	# f1.write(columns.format('Episode','Status','Avg steps to goal','Total Goals','Counter'))
 	hfoEnv = init_environment(idx)
 
 	for episode in range(episode_per_process):
@@ -56,14 +63,12 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 		state = hfoEnv.reset()
 		timesteps = 0 
 		for timesteps in range(500):
-
 			obs_tensor = torch.Tensor(state).unsqueeze(0)
 			Q,act_number = compute_value_action(val_network, obs_tensor,idx,episode,episode_per_process)
 			act = hfoEnv.possibleActions[act_number]
-			newObservation, reward, done, status, info = hfoEnv.step(act)
+			newObservation, reward, done, status, _ = hfoEnv.step(act)
 
 			Q_target = computeTargets(reward,torch.Tensor(newObservation).unsqueeze(0),discountFactor,done,target_value_network)
-			# Q = computePrediction(obs_tensor, act_number, val_network)
 
 			loss_function = nn.MSELoss()
 			loss = loss_function(Q_target,Q)
@@ -73,6 +78,9 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 				with lock:
 					optimizer.step()
 					optimizer.zero_grad()	
+			if counter.value > 3e6:
+				with lock:
+					update_learning_rate(optimizer,counter.value)
 			with lock:
 				counter.value +=1	
 				if counter.value % 1e6 == 0 :
@@ -87,7 +95,7 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 				save_flag = False
 			if evaluate_flag:
 				
-				avg_goal_rate = evaluate(copy.deepcopy(target_value_network),hfoEnv,500,idx,episode_per_process,'worker_evaluate.out')
+				evaluate(copy.deepcopy(target_value_network),hfoEnv,500,idx,episode_per_process,'worker_evaluate.out')
 				evaluate_flag = False
 				
 			if update_target:
@@ -142,7 +150,7 @@ def evaluate(value_network, hfoEnv, max_episode_length, idx,episode_per_process,
 
 	total_goals = 0.0
 	total_steps = 0.0
-	num_episodes= 25
+	num_episodes= 50
 	f1 = open(path, 'a')
 	value_network.eval()
 	for episode in range(num_episodes):
@@ -163,5 +171,5 @@ def evaluate(value_network, hfoEnv, max_episode_length, idx,episode_per_process,
 		else:
 			total_steps += max_episode_length
 	steps_per_goal = total_steps/num_episodes
-	f1.write('Average Goals:'+str(steps_per_goal))
+	f1.write('Average Goals:'+str(steps_per_goal)+'\n')
 	return steps_per_goal

@@ -20,8 +20,8 @@ class WolfPHCAgent(Agent):
 		self.actions = ['MOVE_UP', 'MOVE_DOWN', 'MOVE_LEFT', 'MOVE_RIGHT', 'KICK', 'NO_OP']
 		self.numberOfActions = len(self.actions)
 
-		self.winDelta = winDelta
-		self.loseDelta = loseDelta
+		self.winDelta = 0.0001
+		self.loseDelta = 0.001
 		
 		# Initial empty lists 
 		self.averagepolicy = {}
@@ -168,8 +168,20 @@ class WolfPHCAgent(Agent):
 		self.loseDelta = loseDelta
 	
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		return self.loseDelta,self.winDelta,self.learningRate
-
+		if episodeNumber==10000:
+			self.winDelta=0.001
+			self.loseDelta=0.01
+		if episodeNumber==20000:
+			self.winDelta=0.01
+			self.loseDelta=0.1
+		if episodeNumber==30000:
+			self.winDelta=0.05
+			self.loseDelta=0.5
+		if episodeNumber==40000:
+			self.winDelta=0.1
+			self.loseDelta=1
+		self.learningRate = max((1-episodeNumber/50000),1e-5)*0.5	
+		return self.loseDelta, self.winDelta, self.learningRate
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser()
@@ -190,7 +202,9 @@ if __name__ == '__main__':
 
 	numEpisodes = args.numEpisodes
 	numTakenActions = 0
-	goals = 0 
+	total_goals = 0 
+	final_goals = 0 
+
 	for episode in range(numEpisodes):	
 		
 		status = ["IN_GAME","IN_GAME","IN_GAME"]
@@ -224,13 +238,14 @@ if __name__ == '__main__':
 				agent.calculateAveragePolicyUpdate()
 				agent.calculatePolicyUpdate()
 				agentIdx += 1
-			if reward[0] == 1:
-				goals +=1
-			if done and reward[0] ==1 :
-				print("Goals:",goals," at episode:",episode)
-			
-			
-			
+
+			if reward[0] ==1:
+				total_goals +=1
+			print(episode,total_goals)
+			if episode > 44999:
+				if reward[0] == 1:
+					final_goals +=1
+				
 			observation = nextObservation
-		print(episode)
-	print("Total goals:",goals)
+	print(episode,total_goals)
+	print(episode,final_goals)

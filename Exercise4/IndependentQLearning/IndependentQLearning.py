@@ -27,11 +27,7 @@ class IndependentQLearningAgent(Agent):
 		
 		# --------------------- behavior, target policy and stateValue Q(s,a)  --------------------------- #
 		
-		self.behavior_policy = {}
-		# {(x, y): [0.2, 0.2, 0.2, 0.2, 0.2] for (x, y) in self.states}  # greedy policy
-		
 		self.stateValue = {}
-		# {((x, y), z): 0 for ((x, y), z) in self.stateAction}
 		
 		# --------------------- Resettable Variables  --------------------------- #
 		
@@ -40,12 +36,10 @@ class IndependentQLearningAgent(Agent):
 		self.rewardS_t = 0
 
 	def setExperience(self, state, act, reward, status, nextState):
-		if nextState != (-1,-1):
-			for action in self.actions:
-				if not (nextState,action) in self.stateValue:
-					self.stateValue[(nextState,action)] = 0
-				if not (state,action) in self.stateValue:
-					self.stateValue[(state,action)] = 0
+		# if nextState != (-1,-1):
+		for action in self.actions:
+			if (nextState,action) not in self.stateValue.keys():
+				self.stateValue[(nextState,action)] = 0
 		self.stateS_t_1 = state
 		self.actionS_t_1 = act
 		self.stateS_t = nextState
@@ -57,29 +51,19 @@ class IndependentQLearningAgent(Agent):
 		prior = self.stateValue[(self.stateS_t_1, self.actionS_t_1)]
 		max_value = (-maxsize)
 		
-		if self.stateS_t != (-1, -1):
-			for action in self.actions:
-				temp = self.stateValue[(self.stateS_t, action)]
-				if temp > max_value:
-					max_value = temp
-				
-			self.stateValue[(self.stateS_t_1, self.actionS_t_1)] += self.learningRate * (
-					self.rewardS_t + self.discountFactor * max_value - prior
-			)
-		else:
-			self.stateValue[(self.stateS_t_1, self.actionS_t_1)] += self.learningRate * (
-				self.rewardS_t - self.stateValue[(self.stateS_t_1, self.actionS_t_1)]
-			)
+		# if self.stateS_t != (-1, -1):
+		for action in self.actions:
+			temp = self.stateValue[(self.stateS_t, action)]
+			if temp > max_value:
+				max_value = temp
+		self.stateValue[(self.stateS_t_1, self.actionS_t_1)] += self.learningRate * (
+				self.rewardS_t + self.discountFactor * max_value - prior
+		)
+		# else:
+		# 	self.stateValue[(self.stateS_t_1, self.actionS_t_1)] += self.learningRate * (
+		# 		self.rewardS_t - prior
+		# 	)
 		return self.stateValue[(self.stateS_t_1, self.actionS_t_1)] -prior
-
-	# Update behavior policy e-greedy μ
-		# policy = []
-		# for action in self.actions:
-		# 	if self.stateValue[(self.stateS_t_1, action)] == max_value:
-		# 		policy.append((1 - self.epsilon) + self.epsilon / self.numberOfActions)
-		# 	else:
-		# 	policy.append(self.epsilon / self.numberOfActions)
-	
 	
 	def toStateRepresentation(self, state):
 		if type(state) == str:
@@ -89,11 +73,12 @@ class IndependentQLearningAgent(Agent):
 			attacker2 = tuple(state[0][1])
 			ball = tuple(state[1][0])
 			defender = tuple(state[2][0])
-		return tuple((attacker1,attacker2,ball,defender))
+		return (attacker1,attacker2,ball,defender)
 
 	def setState(self, state):
-		# if not state in self.behavior_policy:
-		# 		self.behavior_policy[state] =[1/6,1/6,1/6,1/6,1/6,1/6]
+		for action in self.actions:
+			if  (state,action) not in self.stateValue.keys():
+					self.stateValue[(state,action)] = 0
 		self.stateS_t = state
 	
 	def act(self):
@@ -108,9 +93,6 @@ class IndependentQLearningAgent(Agent):
 		return action_to_take
 
 
-	#	state_value_probabilities = self.behavior_policy[self.stateS_t]
-	#	return np.random.choice(self.actions, p=state_value_probabilities)
-		
 	
 	def setLearningRate(self, learningRate):
 		self.learningRate = learningRate
@@ -123,11 +105,10 @@ class IndependentQLearningAgent(Agent):
 		self.curr_action = None
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		return self.learningRate, self.epsilon*0.99
+		return max(1 - episodeNumber/45000,1e-5), max(1 - episodeNumber/45000,1e-6)
 
 
 if __name__ == '__main__':
-	goals = 0
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--numOpponents', type=int, default=1)
 	parser.add_argument('--numAgents', type=int, default=2)
@@ -138,9 +119,10 @@ if __name__ == '__main__':
 	MARLEnv = DiscreteMARLEnvironment(numOpponents = args.numOpponents, numAgents = args.numAgents)
 	agents = []
 	for i in range(args.numAgents):
-		agent = IndependentQLearningAgent(learningRate = 0.1, discountFactor = 0.99, epsilon = 0.8)
+		agent = IndependentQLearningAgent(learningRate = 0.1, discountFactor = 0.9, epsilon = 1)
 		agents.append(agent)
-
+	total_goals = 0 
+	final_goals = 0 
 	numEpisodes = args.numEpisodes
 	numTakenActions = 0
 	for episode in range(numEpisodes):	
@@ -163,14 +145,19 @@ if __name__ == '__main__':
 				actions.append(agents[agentIdx].act())
 			numTakenActions += 1
 			nextObservation, reward, done, status = MARLEnv.step(actions)
-			if reward[0] == 1 :
-				goals+=1
-				print(goals,episode)
-
+			
 			for agentIdx in range(args.numAgents):
 				agents[agentIdx].setExperience(agent.toStateRepresentation(stateCopies[agentIdx]), actions[agentIdx], reward[agentIdx], 
 					status[agentIdx], agent.toStateRepresentation(nextObservation[agentIdx]))
 				agents[agentIdx].learn()
+			if reward[0] == 1 :
+				total_goals+=1
+			print(episode,total_goals)
+			if episode > 44999:
+				if reward[0] == 1:
+					final_goals +=1
 				
 			observation = nextObservation
+	print(episode,total_goals)
+	print(episode,final_goals)
 				
