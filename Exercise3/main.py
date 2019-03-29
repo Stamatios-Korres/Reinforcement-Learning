@@ -6,7 +6,7 @@ from Environment import HFOEnv
 import torch
 import torch.multiprocessing as mp
 from Networks import ValueNetwork
-from Worker import train,hard_copy
+from Worker import train,hard_copy,evaluate,saveModelNetwork
 import argparse
 from SharedAdam import SharedAdam
 import copy
@@ -50,7 +50,7 @@ if __name__ == "__main__" :
 	# Hyperparameters - Features 
 	features = 15
 	actions = 4
-	hidden_layers = [50,60,30]
+	hidden_layers = [50,40,30]
 	# Initialize the shared networks 
 	
 	val_network = ValueNetwork(features, hidden_layers, actions)
@@ -66,7 +66,7 @@ if __name__ == "__main__" :
 
 
 	# Shared optimizer ->  Share the gradients between the processes. Lazy allocation so gradients are not shared here
-	optimizer = SharedAdam(params=val_network.parameters(),lr=1e-5)
+	optimizer = SharedAdam(params=val_network.parameters(),lr=1e-4)
 	optimizer.share_memory()
 	optimizer.zero_grad()
 	timesteps_per_process = 32*(10**6) // args.num_processes*500
@@ -79,4 +79,3 @@ if __name__ == "__main__" :
 			processes.append(p)
 	for p in processes:
 			p.join()
-

@@ -12,13 +12,9 @@ import numpy as np
 
 columns = '{0:<10} {1:<8} {2:<20} {3:<15} {4:<15}\n'
 
-def update_learning_rate(optimizer, value):
-	if value > 4e6:
-		lr = 1e-7
-	elif value > 3e6:
-		lr = 1e-6
+def update_learning_rate(optimizer):
 	for param_group in optimizer.param_groups:
-		param_group['lr'] = lr
+		param_group['lr'] = param_group['lr']/10
 
 def init_environment(idx):
         hfoEnv = HFOEnv(numTeammates=0, numOpponents=1, port=6000+idx*10, seed=idx)
@@ -26,11 +22,11 @@ def init_environment(idx):
         return hfoEnv
 
 def set_epsilon(num_episode,idx,episode_per_process):
-	init_epsilon = 1
-	rate_of_decay = 10
-	epsilon = init_epsilon - idx*(1/rate_of_decay)
+	# init_epsilon = 1
+	# rate_of_decay = 10
+	# epsilon = init_epsilon - idx*(1/rate_of_decay)
 
-	epsilon = epsilon - (epsilon)*num_episode/episode_per_process 
+	epsilon = 1 - num_episode/episode_per_process 
 	if epsilon < 0:
 		epsilon = 0 
 	return epsilon
@@ -48,7 +44,7 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 	copy_freq = 10000
 	save_flag = False
 	update_target = False
-	evaluate_frequency = 300000
+	evaluate_frequency = 1000000
 	f = open('worker_%d.out'%idx, 'w')
 	
 
@@ -74,24 +70,22 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 			loss = loss_function(Q_target,Q)
 			loss.backward()
 
-			if timesteps % asyc_update == 0:
+			if timesteps % asyc_update == 0 or done:
 				with lock:
 					optimizer.step()
 					optimizer.zero_grad()	
-			if counter.value > 3e6:
-				with lock:
-					update_learning_rate(optimizer,counter.value)
 			with lock:
 				counter.value +=1	
 				if counter.value % 1e6 == 0 :
 					save_flag = True					
 				if counter.value % copy_freq == 0:
 					update_target = True	
-				if counter.value % evaluate_frequency == 0:
+				if counter.value % evaluate_frequency == 0 :
 					evaluate_flag = True
 					
 			if save_flag:
 				saveModelNetwork(target_value_network,'params_'+str(int(counter.value/1e6)))
+				update_learning_rate(optimizer)
 				save_flag = False
 			if evaluate_flag:
 				

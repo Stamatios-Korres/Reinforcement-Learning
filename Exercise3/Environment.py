@@ -87,13 +87,13 @@ class HFOEnv(object):
 		totalReward = 0
 		info = {}
 		if status == GOAL:
-			totalReward = 1
+			totalReward = 2
 		elif status == CAPTURED_BY_DEFENSE:
-			totalReward=-0.2
+			totalReward=- 0.3
 		elif status == OUT_OF_TIME:
-			totalReward =-6
+			totalReward =-9
 		elif status == OUT_OF_BOUNDS:
-			totalReward =- 0.5
+			totalReward =- 4
 		else:
 			ballX=nextState[3]
 			ballY=nextState[4]
