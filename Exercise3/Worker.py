@@ -44,14 +44,10 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 	copy_freq = 10000
 	save_flag = False
 	update_target = False
-	evaluate_frequency = 1000000
-	f = open('worker_%d.out'%idx, 'w')
 	
 
 	evaluate_flag = False
 	
-	
-	f.write(columns.format('Episode','Status','Avg steps to goal','Total Goals','Counter'))
 	hfoEnv = init_environment(idx)
 
 	for episode in range(episode_per_process):
@@ -60,7 +56,8 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 		timesteps = 0 
 		for timesteps in range(500):
 			obs_tensor = torch.Tensor(state).unsqueeze(0)
-			Q,act_number = compute_value_action(val_network, obs_tensor,idx,episode,episode_per_process)
+			e = set_epsilon(episode,idx,episode_per_process)
+			Q,act_number = compute_value_action(val_network, obs_tensor,e)
 			act = hfoEnv.possibleActions[act_number]
 			newObservation, reward, done, status, _ = hfoEnv.step(act)
 
@@ -80,18 +77,10 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 					save_flag = True					
 				if counter.value % copy_freq == 0:
 					update_target = True	
-				if counter.value % evaluate_frequency == 0 :
-					evaluate_flag = True
-					
 			if save_flag:
 				saveModelNetwork(target_value_network,'params_'+str(int(counter.value/1e6)))
 				update_learning_rate(optimizer)
 				save_flag = False
-			if evaluate_flag:
-				
-				evaluate(copy.deepcopy(target_value_network),hfoEnv,500,idx,episode_per_process,'worker_evaluate.out')
-				evaluate_flag = False
-				
 			if update_target:
 				hard_copy(target_value_network, val_network)
 				update_target = False
@@ -103,17 +92,14 @@ def train(idx, val_network, target_value_network, optimizer, lock, counter,episo
 			goals+=1			
 		else:
 			total_steps+=500
-		f.write(columns.format(episode, status, '%.1f'%(total_steps/(episode+1)), goals, counter.value))
-		f.flush()
 	
-			
 
-def compute_value_action(valueNetwork, obs,idx,episodeNumber,episode_per_process):	
+def compute_value_action(valueNetwork, obs,epsilon):	
 	
 	output_qs = valueNetwork(obs)
-	_,act =torch.max(output_qs[0],0)
+	_,act =torch.max(output_qs[0],dim=0)
 	act = act.item()
-	if random.random() < set_epsilon(episodeNumber,idx,episode_per_process):
+	if random.random() < epsilon:
 		act = random.randint(0,3)
 	return output_qs[0][act],act
 
@@ -138,32 +124,3 @@ def saveModelNetwork(model, strDirectory):
 def hard_copy(target, source):
         for target_param, param in zip(target.parameters(), source.parameters()):
                 target_param.data.copy_(param.data)
-
-def evaluate(value_network, hfoEnv, max_episode_length, idx,episode_per_process,path):
-	
-
-	total_goals = 0.0
-	total_steps = 0.0
-	num_episodes= 50
-	f1 = open(path, 'a')
-	value_network.eval()
-	for episode in range(num_episodes):
-		state = hfoEnv.reset()
-		
-		for step in range(max_episode_length):
-			obs_tensor = torch.Tensor(state).unsqueeze(0)
-			_,act_number = compute_value_action(value_network, obs_tensor,idx,episode,3)
-			act = hfoEnv.possibleActions[act_number]
-			newObservation, reward, done, status, info = hfoEnv.step(act)
-			state=newObservation
-			if done:
-				break
-
-		if status==1:
-			total_steps += step
-			total_goals += 1
-		else:
-			total_steps += max_episode_length
-	steps_per_goal = total_steps/num_episodes
-	f1.write('Average Goals:'+str(steps_per_goal)+'\n')
-	return steps_per_goal

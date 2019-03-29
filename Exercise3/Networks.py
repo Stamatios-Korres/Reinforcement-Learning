@@ -6,7 +6,7 @@ import math
 class ValueNetwork(nn.Module):
     
   
-    def __init__(self,inputDims, layerDims, outputDims):
+    def __init__(self,inputDims = 15, layerDims = [50,40,30], outputDims = 4):
 
         super(ValueNetwork, self).__init__()
 

@@ -6,7 +6,7 @@ from Environment import HFOEnv
 import torch
 import torch.multiprocessing as mp
 from Networks import ValueNetwork
-from Worker import train,hard_copy,evaluate,saveModelNetwork
+from Worker import train,hard_copy,saveModelNetwork
 import argparse
 from SharedAdam import SharedAdam
 import copy
@@ -48,23 +48,19 @@ if __name__ == "__main__" :
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	# Hyperparameters - Features 
-	features = 15
-	actions = 4
-	hidden_layers = [50,40,30]
+	
 	# Initialize the shared networks 
 	
-	val_network = ValueNetwork(features, hidden_layers, actions)
+	val_network = ValueNetwork()
 	val_network.share_memory()
 
-	target_value_network = ValueNetwork(features, hidden_layers, actions)
+	target_value_network = ValueNetwork()
 	target_value_network.share_memory()
 
 
 	hard_copy(val_network,target_value_network)
 	val_network.train()
 	
-
-
 	# Shared optimizer ->  Share the gradients between the processes. Lazy allocation so gradients are not shared here
 	optimizer = SharedAdam(params=val_network.parameters(),lr=1e-4)
 	optimizer.share_memory()
