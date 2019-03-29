@@ -37,17 +37,14 @@ class JointQLearningAgent(Agent):
 
 	
 	def setExperience(self, state, action, oppoActions, reward, status, nextState):
-	
 		
-		for Ai in self.actions:
-			if state not in self.C.keys():
-				self.C[(state,Ai)]=0
-			if nextState != (-1,-1):
-				self.N[nextState]=0.0
-				if nextState not in self.C.keys():
-					if nextState not in self.C.keys():
-						for Aj in self.actions:
-							self.Q[(nextState,(Ai,Aj))]=0.0
+		if nextState not in self.N.keys():
+			# print("Found new State:",nextState)
+			self.N[nextState]=0
+			for Ai in self.actions:
+				self.C[(nextState,Ai)]=0
+				for Aj in self.actions:
+					self.Q[(nextState,(Ai,Aj))]=0
 					
 		self.S_t_1 = state
 		# Hard coded the number of oponnets to one 
@@ -58,16 +55,10 @@ class JointQLearningAgent(Agent):
 
 	def learn(self):
 		prior = self.Q[(self.S_t_1,(self.a_t_1,self.opon_ac_t_1))]
-		if self.S_t != (-1, -1):
-			self.Q[(self.S_t_1,(self.a_t_1,self.opon_ac_t_1))] = (1 - self.learningRate) * self.Q[(self.S_t_1,(self.a_t_1,self.opon_ac_t_1))] \
-				+ self.learningRate*(self.r_t +  self.discountFactor*(self.get_max_action_value_new_state()) )
-			self.C[(self.S_t_1,self.opon_ac_t_1)] +=1
-			self.N[self.S_t_1]+=1
-		else:
-			self.Q[(self.S_t_1,(self.a_t_1,self.opon_ac_t_1))] = (1 - self.learningRate) * self.Q[(self.S_t_1,(self.a_t_1,self.opon_ac_t_1))] \
-				+ self.learningRate*self.r_t
-			self.C[(self.S_t_1,self.opon_ac_t_1)] +=1
-			self.N[self.S_t_1]+=1
+		self.Q[(self.S_t_1,(self.a_t_1,self.opon_ac_t_1))] = (1 - self.learningRate) * self.Q[(self.S_t_1,(self.a_t_1,self.opon_ac_t_1))] \
+			+ self.learningRate*(self.r_t +  self.discountFactor*(self.get_max_action_value_new_state()) )
+		self.C[(self.S_t_1,self.opon_ac_t_1)] +=1
+		self.N[self.S_t_1]+=1
 		return self.Q[(self.S_t_1,(self.a_t_1,self.opon_ac_t_1))] - prior
 	
 	
@@ -81,10 +72,11 @@ class JointQLearningAgent(Agent):
 			joint_max_sum.append(sumAi)
 		index = joint_max_sum.index(max(joint_max_sum))
 		if joint_max_sum[1:] == joint_max_sum[:-1]:
-			index = np.random.randint(0,self.numberOfActions)
+			index = np.random.randint(self.numberOfActions)
 		return self.actions[index]
 
 	def get_max_action_value_new_state(self):
+		# Used only in the learn() function to a max value, not used for any indexing
 		joint_max_sum = []
 		for Ai in self.actions:
 			sumAi = 0 
@@ -93,49 +85,49 @@ class JointQLearningAgent(Agent):
 					sumAi += self.C[(self.S_t,Aj)] * self.Q[(self.S_t,(Ai,Aj))] / self.N[self.S_t]
 			joint_max_sum.append(sumAi)		
 		
-		return max(joint_max_sum)
-
-	
+		return max(joint_max_sum) 
 
 
 	def setState(self, state):
 		if state not in self.N.keys():
 			self.N[state]=0
 			for Ai in self.actions:
-				print((state,Ai))
 				self.C[(state,Ai)]=0
 				for Aj in self.actions:
-					self.Q[(state,(Ai,Aj))]=0.0
+					self.Q[(state,(Ai,Aj))]=0
 		self.S_t = state 
 
-
-
 	def act(self):		
-		 
+		action = self.get_max_action_value() 
+		if random.random() < self.epsilon:
+			index = np.random.randint(self.numberOfActions)
+			action =  self.actions[index]
+		return action
 
-		return self.get_max_action_value()
-
-		
-
-	def setEpsilon(self, epsilon) :
+	def setEpsilon(self, epsilon):
 		self.epsilon = epsilon
 		
 	def setLearningRate(self, learningRate) :
 		self.learningRate = learningRate
 
-	
 	def toStateRepresentation(self, state):
-			if type(state) == str:
-				return -1, -1
-			else:
-				attacker1 = tuple(state[0][0])
-				attacker2 = tuple(state[0][1])
-				ball = tuple(state[1][0])
-				defender = tuple(state[2][0])
-			return tuple((attacker1,attacker2,ball,defender))
+		if type(state) == str:
+			return -1, -1
+		else:
+			attacker1 = tuple(state[0][0])
+			attacker2 = tuple(state[0][1])
+			ball = tuple(state[1][0])
+			defender = tuple(state[2][0])
+		return (attacker1,attacker2,ball,defender)
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		return self.learningRate, self.epsilon
+		learning = max(1-episodeNumber/45500,1e-5)
+		e = 0.1
+		if episodeNumber > 30000:
+			e = 0.005
+		elif episodeNumber > 45000:
+			e = 1e-6
+		return learning,e
 		
 if __name__ == '__main__':
 
@@ -156,7 +148,8 @@ if __name__ == '__main__':
 
 	numEpisodes = numEpisodes
 	numTakenActions = 0
-	goals = 0 
+	final_goals = 0
+	total_goals = 0  
 	for episode in range(numEpisodes):	
 		status = ["IN_GAME","IN_GAME","IN_GAME"]
 		observation = MARLEnv.reset()
@@ -183,9 +176,15 @@ if __name__ == '__main__':
 				agents[agentIdx].setExperience(agents[agentIdx].toStateRepresentation(stateCopies[agentIdx]), actions[agentIdx], oppoActions, 
 					reward[agentIdx], status[agentIdx], agent.toStateRepresentation(nextObservation[agentIdx]))
 				agents[agentIdx].learn()
+
+			if reward[0] ==1:
+				total_goals +=1
+			print(episode,total_goals)
+			if episode > 44999:
+				if reward[0] == 1:
+					final_goals +=1
 				
 			observation = nextObservation
-			if reward[0] == 1:
-				goals +=1
-			if done[0] and reward[0] == 1:
-				print("State",status[0],"Goals:",goals," at episode:",episode)
+	print(episode,total_goals)
+	print(episode,final_goals)
+				
