@@ -6,6 +6,6 @@ In this repository implementations of the following Reinforcement Algorithms can
 * Monte Carlo, Temporal-Difference Learning
 * Function Approximation, Deep RL
 * Multi-agent RL
-
+ 
 The agents are trained against other players under the game [RoboCup 2D Half Field Offense](https://github.com/LARG/HFO)
  
